@@ -3,16 +3,18 @@ Ollama の llama3 モデルを用いて、日本語の指示（instruction）と
 
 処理の流れ:
 - シード（特殊トークン使用）でモデルから指示文を得る
-- 得られた指示文を再度モデルに与えて応答を取得
+- 必要に応じて、その指示に対するユーザー入力（input）の例を1つだけ生成（不要なら空文字）
+- 指示と（あれば）入力をモデルに与えて応答を取得
 - これを dataset_size 回繰り返し、1,000件ごとに一時JSONへ保存、最後に全件を結合したJSONも保存
 
 出力:
 - 分割保存: instruction-data-llama3.tmp.0001.json, 0002.json, ...
-- 最終保存: instruction-data-llama3.json（全レコードの配列）
+- 最終保存: instruction-data-llama3.json（レコード配列: instruction, input, output）
 
 レコード例:
 {
     "instruction": "日本語で自己紹介を1文でしてください。",
+    "input": "",
     "output": "私はAIアシスタントで、あなたの質問に日本語でお答えします。"
 }
 
@@ -103,6 +105,41 @@ def extract_instruction(text):
             return content.strip()
 
 
+def generate_optional_input_for_instruction(instruction, model, url, timeout, max_retries):
+    """
+    指示に対する補助的な入力（input）の例を1つだけ生成する。
+    不要な場合は空文字を返す。余計な説明やラベルは付けないようにモデルへ促す。
+    """
+    prompt = (
+        "次の指示に対して、必要であればユーザーからの補助的な入力(input)の例を1つだけ英語で返してください。"
+        "不要な場合は空文字のみを返してください。余計な説明やラベルは書かず、input本文のみを返してください。\n\n"
+        f"指示:\n{instruction}\n"
+    )
+    try:
+        result = query_model(
+            prompt,
+            model=model,
+            url=url,
+            role="user",
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+    except Exception:
+        return ""
+
+    input_text = (result or "").strip()
+
+    if input_text in {"''", '""', "`", "``", "```"}:
+        return ""
+
+    for prefix in ["入力:", "input:", "Input:", "ユーザー入力:", "例:", "サンプル:"]:
+        if input_text.lower().startswith(prefix.lower()):
+            input_text = input_text[len(prefix):].strip()
+            break
+
+    return input_text
+
+
 # CLI / Env 設定
 parser = argparse.ArgumentParser(description="Generate instruction-response dataset with llama3 via Ollama")
 parser.add_argument("--dataset-size", type=int, default=None, help="生成するデータ件数（環境変数 DATASET_SIZE より優先）")
@@ -134,27 +171,55 @@ dataset = []
 chunk = []
 chunk_index = 0
 
-for i in tqdm(range(dataset_size)):
-    result = query_model(query, model=MODEL_NAME, url=OLLAMA_URL, role="assistant", timeout=REQUEST_TIMEOUT_SECONDS, max_retries=MAX_RETRIES)
-    instruction = extract_instruction(result)
-    response = query_model(instruction, model=MODEL_NAME, url=OLLAMA_URL, role="user", timeout=REQUEST_TIMEOUT_SECONDS, max_retries=MAX_RETRIES)
-    entry = {
-        "instruction": instruction,
-        "output": response
-    }
-    print(entry)
-    dataset.append(entry)
-    chunk.append(entry)
-    if len(chunk) == CHUNK_SIZE:
+# 成功件数ベースの進捗バー
+progress_bar = tqdm(total=dataset_size)
+
+try:
+    # 成功件数が dataset_size に達するまで生成を続ける
+    while len(dataset) < dataset_size:
+        try:
+            result = query_model(query, model=MODEL_NAME, url=OLLAMA_URL, role="assistant", timeout=REQUEST_TIMEOUT_SECONDS, max_retries=MAX_RETRIES)
+            instruction = extract_instruction(result)
+            if not instruction:
+                continue
+
+            generated_input = generate_optional_input_for_instruction(
+                instruction,
+                model=MODEL_NAME,
+                url=OLLAMA_URL,
+                timeout=REQUEST_TIMEOUT_SECONDS,
+                max_retries=MAX_RETRIES,
+            )
+
+            output_prompt = instruction if not generated_input else f"{instruction}\n\n入力:\n{generated_input}"
+
+            response = query_model(output_prompt, model=MODEL_NAME, url=OLLAMA_URL, role="user", timeout=REQUEST_TIMEOUT_SECONDS, max_retries=MAX_RETRIES)
+            entry = {
+                "instruction": instruction,
+                "input": generated_input,
+                "output": response
+            }
+            print(entry)
+            dataset.append(entry)
+            chunk.append(entry)
+            progress_bar.update(1)
+            if len(chunk) == CHUNK_SIZE:
+                chunk_index += 1
+                with open(os.path.join(OUTPUT_DIRECTORY, f"instruction-data-llama3.tmp.{chunk_index:04d}.json"), "w", encoding="utf-8") as tmp_file:
+                    json.dump(chunk, tmp_file, indent=4, ensure_ascii=False)
+                chunk = []
+        except Exception as e:
+            # Skip current attempt on error, but keep going without counting toward total
+            print(f"[WARN] generation attempt failed: {e}")
+            continue
+finally:
+    if chunk:
         chunk_index += 1
         with open(os.path.join(OUTPUT_DIRECTORY, f"instruction-data-llama3.tmp.{chunk_index:04d}.json"), "w", encoding="utf-8") as tmp_file:
             json.dump(chunk, tmp_file, indent=4, ensure_ascii=False)
-        chunk = []
 
-if chunk:
-    chunk_index += 1
-    with open(os.path.join(OUTPUT_DIRECTORY, f"instruction-data-llama3.tmp.{chunk_index:04d}.json"), "w", encoding="utf-8") as tmp_file:
-        json.dump(chunk, tmp_file, indent=4, ensure_ascii=False)
+    with open(os.path.join(OUTPUT_DIRECTORY, "instruction-data-llama3.json"), "w", encoding="utf-8") as file:
+        json.dump(dataset, file, indent=4, ensure_ascii=False)
 
-with open(os.path.join(OUTPUT_DIRECTORY, "instruction-data-llama3.json"), "w", encoding="utf-8") as file:
-    json.dump(dataset, file, indent=4, ensure_ascii=False)
+    # 進捗バーを閉じる
+    progress_bar.close()

@@ -3,7 +3,8 @@ Ollama のチャットAPIを用いて日本語の指示（instruction）と応�
 
 処理の流れ:
 - シードプロンプトから短く安全な日本語指示をモデルに生成させる
-- その指示を再度モデルに与えて応答を取得する
+- 必要に応じて、その指示に対するユーザー入力（input）の例を1つだけ生成する（不要なら空文字）
+- 指示と（あれば）入力をモデルに与えて応答を取得する
 - これを DATASET_SIZE 回繰り返し、一定件数ごと（CHUNK_SIZE）に一時ファイルへ出力
 - 終了時（通常終了/Ctrl+C）に、未保存分を含めて一時ファイルと最終JSONを保存
 
@@ -17,11 +18,12 @@ Ollama のチャットAPIを用いて日本語の指示（instruction）と応�
 
 出力:
 - 分割保存: instruction-data-gpt-oss-20b.tmp.0001.json, 0002.json, ...
-- 最終保存: instruction-data-gpt-oss-20b.json（全レコードの配列）
+- 最終保存: instruction-data-gpt-oss-20b.json（レコード配列: instruction, input, output）
 
 レコード例:
 {
     "instruction": "日本語で自己紹介を1文でしてください。",
+    "input": "",
     "output": "私はAIアシスタントで、あなたの質問に日本語でお答えします。"
 }
 
@@ -140,6 +142,43 @@ def extract_instruction(text):
     return ""
 
 
+def generate_optional_input_for_instruction(instruction, model, url, timeout, max_retries):
+    """
+    指示に対する補助的な入力（input）の例を1つだけ生成する。
+    不要な場合は空文字を返す。余計な説明やラベルは付けないようにモデルへ促す。
+    """
+    prompt = (
+        "次の指示に対して、必要であればユーザーからの補助的な入力(input)の例を1つだけ日本語で返してください。"
+        "不要な場合は空文字のみを返してください。余計な説明やラベルは書かず、input本文のみを返してください。\n\n"
+        f"指示:\n{instruction}\n"
+    )
+    try:
+        result = query_model(
+            prompt,
+            model=model,
+            url=url,
+            role="user",
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+    except Exception:
+        return ""
+
+    input_text = (result or "").strip()
+
+    # モデルが引用符のみ等を返した場合は空扱い
+    if input_text in {"''", '""', "`", "``", "```"}:
+        return ""
+
+    # 先頭に付くことがあるラベルを軽く除去
+    for prefix in ["入力:", "input:", "Input:", "ユーザー入力:", "例:", "サンプル:"]:
+        if input_text.lower().startswith(prefix.lower()):
+            input_text = input_text[len(prefix):].strip()
+            break
+
+    return input_text
+
+
 # Environment configuration
 parser = argparse.ArgumentParser(description="Generate instruction-response dataset via Ollama")
 parser.add_argument("--dataset-size", type=int, default=None, help="生成するデータ件数（環境変数 DATASET_SIZE より優先）")
@@ -189,8 +228,12 @@ dataset = []
 chunk = []
 chunk_index = 0
 
+# 成功件数ベースの進捗バー
+progress_bar = tqdm(total=DATASET_SIZE)
+
 try:
-	for i in tqdm(range(DATASET_SIZE)):
+	# 成功件数が DATASET_SIZE に達するまで生成を続ける
+	while len(dataset) < DATASET_SIZE:
 		try:
 			result = query_model(
 				seed_prompt,
@@ -203,8 +246,21 @@ try:
 			instruction = extract_instruction(result) or (result.strip() if result else "")
 			if not instruction:
 				continue
-			response = query_model(
+
+			# 任意 input を生成（不要なら空文字）
+			generated_input = generate_optional_input_for_instruction(
 				instruction,
+				model=MODEL_NAME,
+				url=OLLAMA_URL,
+				timeout=REQUEST_TIMEOUT_SECONDS,
+				max_retries=MAX_RETRIES,
+			)
+
+			# 出力用のプロンプトを組み立て
+			output_prompt = instruction if not generated_input else f"{instruction}\n\n入力:\n{generated_input}"
+
+			response = query_model(
+				output_prompt,
 				model=MODEL_NAME,
 				url=OLLAMA_URL,
 				role="user",
@@ -213,19 +269,21 @@ try:
 			)
 			entry = {
 				"instruction": instruction,
+				"input": generated_input,
 				"output": response,
 			}
 			print(entry)
 			dataset.append(entry)
 			chunk.append(entry)
+			progress_bar.update(1)
 			if len(chunk) == CHUNK_SIZE:
 				chunk_index += 1
 				with open(os.path.join(OUTPUT_DIRECTORY, f"instruction-data-gpt-oss-20b.tmp.{chunk_index:04d}.json"), "w", encoding="utf-8") as tmp_file:
 					json.dump(chunk, tmp_file, indent=4, ensure_ascii=False)
 				chunk = []
 		except Exception as e:
-			# Skip current iteration on error, but keep going
-			print(f"[WARN] iteration {i} failed: {e}")
+			# Skip current attempt on error, but keep going without counting toward total
+			print(f"[WARN] generation attempt failed: {e}")
 			continue
 except KeyboardInterrupt:
 	print("\n[INFO] Ctrl+C で中断されました。途中結果を書き出します...")
@@ -235,4 +293,6 @@ finally:
 		with open(os.path.join(OUTPUT_DIRECTORY, f"instruction-data-gpt-oss-20b.tmp.{chunk_index:04d}.json"), "w", encoding="utf-8") as tmp_file:
 			json.dump(chunk, tmp_file, indent=4, ensure_ascii=False)
 	with open(os.path.join(OUTPUT_DIRECTORY, "instruction-data-gpt-oss-20b.json"), "w", encoding="utf-8") as file:
-		json.dump(dataset, file, indent=4, ensure_ascii=False) 
+		json.dump(dataset, file, indent=4, ensure_ascii=False)
+	# 進捗バーを閉じる
+	progress_bar.close() 
