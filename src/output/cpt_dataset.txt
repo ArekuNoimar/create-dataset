@@ -1,0 +1,168 @@
+# React Hooks Guide
+
+## Introduction
+
+React Hooks allow you to use state and lifecycle methods in functional components. No need to write class components to access React features.
+
+## Basic Hooks
+
+### useState
+
+Hook for managing state.
+
+```javascript
+import React, { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  const increment = () => {
+    setCount(count + 1);
+  };
+
+  return (
+    <div>
+      <h2>Count: {count}</h2>
+      <button onClick={increment}>+1</button>
+    </div>
+  );
+}
+
+export default Counter;
+```
+
+### useEffect
+
+Hook for handling side effects.
+
+```javascript
+import React, { useState, useEffect } from 'react';
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch(`/api/users/${userId}`);
+        const userData = await response.json();
+        setUser(userData);
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [userId]);
+
+  if (loading) return <div>Loading...</div>;
+  if (!user) return <div>User not found</div>;
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>Email: {user.email}</p>
+    </div>
+  );
+}
+```
+
+## Custom Hooks
+
+Create reusable logic with custom hooks.
+
+```javascript
+import { useState, useEffect } from 'react';
+
+function useFetch(url) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(url);
+        const result = await response.json();
+        setData(result);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [url]);
+
+  return { data, loading, error };
+}
+```
+
+## Rules of Hooks
+
+1. Only call hooks at the top level
+2. Only call hooks from React functions
+
+React Hooks make functional components more powerful and code more reusable.
+
+
+---
+
+# Python Machine Learning Basics
+
+## Overview
+
+Python is one of the most popular programming languages for machine learning. It offers rich libraries and simple syntax, making it accessible for beginners and experts alike.
+
+## Key Libraries
+
+### NumPy
+The foundation library for numerical computing.
+
+```python
+import numpy as np
+
+# Create array
+arr = np.array([1, 2, 3, 4, 5])
+print(arr)
+
+# Matrix operations
+matrix = np.array([[1, 2], [3, 4]])
+result = np.dot(matrix, matrix)
+print(result)
+```
+
+### Pandas
+Library for data manipulation and analysis.
+
+```python
+import pandas as pd
+
+# Create DataFrame
+df = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie'],
+    'age': [25, 30, 35],
+    'city': ['Tokyo', 'Osaka', 'Kyoto']
+})
+
+print(df.head())
+print(df.describe())
+```
+
+## Learning Path
+
+1. Learn Python basics
+2. Master NumPy and Pandas
+3. Implement ML algorithms
+4. Work on real projects
+
+Machine learning requires continuous learning. Balance theory with practice for best results.
+
+
+---
+

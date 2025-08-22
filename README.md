@@ -11,11 +11,34 @@ create-dataset/
 ├── src
 │   ├── gpt-oss-20b-ollama.py
 │   ├── llama3-ollama.py    
-│   └── output                                   # 生成結果保存用ディレクトリ
+│   └── input                                    # 入力データの保存用ディレクトリ       
+│   └── output                                   # 出力データの保存用ディレクトリ
 │       └── instruction-data-llama3.json         # llama3-ollama.py より生成された10件のデータセット
 │       └── instruction-data-gpt-oss-20b.json    # gpt-oss-20b-ollama.py より生成された10件のデータセット
 └── uv.lock
 ```
+
+```bash
+create-dataset/
+├── README.md
+├── pyproject.toml
+├── src
+│   ├── input                                   # 入力データの保存用ディレクトリ       
+│   │   ├── sample.md                          # サンプルMarkdownファイル
+│   │   └── sample2.md                         # サンプルMarkdownファイル
+│   ├── gpt-oss-20b-ollama.py
+│   ├── llama3-ollama.py
+│   ├── markdown-to-dataset.py
+│   └── output                                  # 出力データの保存用ディレクトリ
+│       ├── cpt_dataset.jsonl                   # markdown-to-dataset.py より生成されたjson形式のデータセット
+│       ├── cpt_dataset.txt                     # markdown-to-dataset.py より生成されたtext形式のデータセット
+│       ├── cpt_dataset_stats.json              # markdown-to-dataset.py  実行時の結果を表示
+│       ├── instruction-data-gpt-oss-20b.json   # gpt-oss-20b-ollama.py より生成された10件のデータセット
+│       └── instruction-data-llama3.json        # llama3-ollama.py より生成された10件のデータセット
+└── uv.lock
+```
+
+
 
 ## 取得可能なデータについて
 
@@ -74,7 +97,7 @@ source .venv/bin/activate
 uv sync
 ```
 
-## 使用例
+## 使用例(SFTデータ)
 
 ```bash
 # llama3を利用してデータセットを作成する
@@ -91,4 +114,21 @@ uv run src/gpt-oss-20b-ollama.py --dataset-size 10 --output-directory src/output
 --chunk-size: チャンク保存サイズ
 --output-directory: 出力先ディレクトリ
 --max-retries: リトライ回数
+```
+
+## 使用例(CPTデータ)
+
+```bash
+# マークダウンファイルをjson形式のデータセットに統合
+uv run src/markdown-to-dataset.py --input src/input/ --output-dir src/output/ --output-file-name cpt_dataset
+```
+
+## 使用可能なオプション
+
+```bash
+- `--input`, `-i`: マークダウンファイルが含まれる入力ディレクトリ
+- `--output-dir`: データセットを保存する出力ディレクトリ
+- `--output-file-name`: 出力ファイル名のベース名（拡張子なし
+- `--min-length`: データセットに含める最小文字数
+- `--format`: 出力形式（jsonl、txt、both
 ```
