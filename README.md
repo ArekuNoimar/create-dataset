@@ -119,7 +119,7 @@ uv run src/gpt-oss-20b-ollama.py --dataset-size 10 --output-directory src/output
 
 ```bash
 # llama3モデルを利用し、3台のPCでクエリ分散して10件のデータセットを作成
-uv run src/llama3-ollama-parallel.py --dataset-size 10 --max-resource 3
+uv run src/llama3-ollama-parallel.py --dataset-size 10 --max-resource 3 --output-directory src/output/
 
 # --max-resource 3が指定されました。3個のOllamaサーバーURLを入力してください。
 # サーバー 1のURL (例: http://192.168.1.252:11434/api/chat): http://localhost:11434/api/chat
