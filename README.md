@@ -14,6 +14,7 @@ create-dataset/
 │   │   └── sample2.md                         # サンプルMarkdownファイル
 │   ├── gpt-oss-20b-ollama.py
 │   ├── llama3-ollama.py
+│   ├── llama3-ollama-parallel.py
 │   ├── markdown-to-dataset.py
 │   └── output                                  # 出力データの保存用ディレクトリ
 │       ├── cpt_dataset.jsonl                   # markdown-to-dataset.py より生成されたjson形式のデータセット
@@ -23,7 +24,6 @@ create-dataset/
 │       └── instruction-data-llama3.json        # llama3-ollama.py より生成された10件のデータセット
 └── uv.lock
 ```
-
 
 
 ## 取得可能なデータについて
@@ -93,6 +93,9 @@ uv sync
 
 ## 使用例(SFTデータ)
 
+- gpt-oss-20b-ollama.py  
+- llama3-ollama.py  
+
 ```bash
 # llama3を利用してデータセットを作成する
 uv run src/llama3-ollama.py --dataset-size 10 --output-directory src/output/
@@ -108,6 +111,26 @@ uv run src/gpt-oss-20b-ollama.py --dataset-size 10 --output-directory src/output
 --chunk-size: チャンク保存サイズ
 --output-directory: 出力先ディレクトリ
 --max-retries: リトライ回数
+```
+
+- llama3-ollama-parallel.py
+
+```bash
+# llama3モデルを利用し、3台のPCでクエリ分散して10件のデータセットを作成
+uv run src/llama3-ollama-parallel.py --dataset-size 10 --max-resource 3
+
+# --max-resource 3が指定されました。3個のOllamaサーバーURLを入力してください。
+# サーバー 1のURL (例: http://192.168.1.252:11434/api/chat): http://localhost:11434/api/chat
+# サーバー 2のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.252:11434/api/chat
+# サーバー 3のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.254:11434/api/chat
+```
+
+```bash
+--dataset-size: 生成データ件数
+--chunk-size: チャンク保存サイズ
+--output-directory: 出力ディレクトリ
+--max-retries: リトライ回数
+--max-resource: 使用するOllamaリソース数
 ```
 
 ## 使用例(CPTデータ)
