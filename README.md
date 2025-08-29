@@ -116,6 +116,7 @@ uv run src/gpt-oss-20b-ollama.py --dataset-size 10 --output-directory src/output
 ```
 
 - llama3-ollama-parallel.py
+- gpt-oss-20b-parallel.py
 
 ```bash
 # llama3モデルを利用し、3台のPCでクエリ分散して10件のデータセットを作成
@@ -126,6 +127,17 @@ uv run src/llama3-ollama-parallel.py --dataset-size 10 --max-resource 3 --output
 # サーバー 2のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.252:11434/api/chat
 # サーバー 3のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.254:11434/api/chat
 ```
+
+```bash
+# lgpt-oss-20bモデルを利用し、3台のPCでクエリ分散して10件のデータセットを作成
+uv run src/gpt-oss-20b-parallel.py --dataset-size 10 --max-resource 3 --output-directory src/output/
+
+# --max-resource 3が指定されました。3個のOllamaサーバーURLを入力してください。
+# サーバー 1のURL (例: http://192.168.1.252:11434/api/chat): http://localhost:11434/api/chat
+# サーバー 2のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.252:11434/api/chat
+# サーバー 3のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.254:11434/api/chat
+```
+
 
 ```bash
 --dataset-size: 生成データ件数
