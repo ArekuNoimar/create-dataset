@@ -380,6 +380,5 @@ finally:
 
     with open(os.path.join(OUTPUT_DIRECTORY, "instruction-data-llama3.json"), "w", encoding="utf-8") as file:
         json.dump(dataset, file, indent=4, ensure_ascii=False)
-
     # 進捗バーを閉じる
     progress_bar.close()

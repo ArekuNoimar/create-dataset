@@ -14,8 +14,6 @@ create-dataset/
 │   ├── input                                   # 入力データの保存用ディレクトリ       
 │   │   ├── sample.md                          # サンプルMarkdownファイル
 │   │   └── sample2.md                         # サンプルMarkdownファイル
-│   ├── gpt-oss-20b-ollama.py
-│   ├── llama3-ollama.py
 │   ├── llama3-ollama-parallel.py
 │   ├── markdown-to-dataset.py
 │   └── output                                  # 出力データの保存用ディレクトリ
@@ -93,32 +91,16 @@ source .venv/bin/activate
 uv sync
 ```
 
-## 使用例(SFTデータ)
-
-- gpt-oss-20b-ollama.py  
-- llama3-ollama.py  
-
-```bash
-# llama3を利用してデータセットを作成する
-uv run src/llama3-ollama.py --dataset-size 10 --output-directory src/output/
-
-# gpt-oss-20bを利用してデータセットを作成する
-uv run src/gpt-oss-20b-ollama.py --dataset-size 10 --output-directory src/output/
-```
-
-## 使用可能なオプション
-
-```bash
---dataset-size: 生成件数
---chunk-size: チャンク保存サイズ
---output-directory: 出力先ディレクトリ
---max-retries: リトライ回数
-```
+## SFTデータ作成 実行例
 
 - llama3-ollama-parallel.py
 - gpt-oss-20b-parallel.py
 
 ```bash
+
+# llama3モデルを利用し、単一PCで10件のデータセットを作成
+uv run src/llama3-ollama-parallel.py --dataset-size 10
+
 # llama3モデルを利用し、3台のPCでクエリ分散して10件のデータセットを作成
 uv run src/llama3-ollama-parallel.py --dataset-size 10 --max-resource 3 --output-directory src/output/
 
@@ -129,7 +111,11 @@ uv run src/llama3-ollama-parallel.py --dataset-size 10 --max-resource 3 --output
 ```
 
 ```bash
-# lgpt-oss-20bモデルを利用し、3台のPCでクエリ分散して10件のデータセットを作成
+
+# gpt-oss-20bモデルを利用し、単一PCで10件のデータセットを作成
+uv run src/gpt-oss-20b-parallel.py --dataset-size 10
+
+# gpt-oss-20bモデルを利用し、3台のPCでクエリ分散して10件のデータセットを作成
 uv run src/gpt-oss-20b-parallel.py --dataset-size 10 --max-resource 3 --output-directory src/output/
 
 # --max-resource 3が指定されました。3個のOllamaサーバーURLを入力してください。
@@ -137,7 +123,6 @@ uv run src/gpt-oss-20b-parallel.py --dataset-size 10 --max-resource 3 --output-d
 # サーバー 2のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.252:11434/api/chat
 # サーバー 3のURL (例: http://192.168.1.252:11434/api/chat): http://192.168.1.254:11434/api/chat
 ```
-
 
 ```bash
 --dataset-size: 生成データ件数
@@ -147,12 +132,12 @@ uv run src/gpt-oss-20b-parallel.py --dataset-size 10 --max-resource 3 --output-d
 --max-resource: 使用するOllamaリソース数
 ```
 
-## 使用例(CPTデータ)
+## CPTデータ作成 実行例
 
 ```bash
 # マークダウンファイルをjson形式のデータセットに統合
-uv run src/markdown-to-dataset.py --input src/input/ --output-dir src/output/ --output-file-name cpt_dataset
-```
+
+```uv run src/markdown-to-dataset.py --input src/input/ --output-dir src/output/ --output-file-name cpt_dataset
 
 ## 使用可能なオプション
 
@@ -162,4 +147,19 @@ uv run src/markdown-to-dataset.py --input src/input/ --output-dir src/output/ --
 - `--output-file-name`: 出力ファイル名のベース名（拡張子なし
 - `--min-length`: データセットに含める最小文字数
 - `--format`: 出力形式（jsonl、txt、both
+```
+
+## arxivからPDFをダウンロードしてOCR後にマークダウン化したデータのクリーニング
+
+- OCRアーティファクトの識別: 矢印(→)、単一文字行、数字のみの行などを検出  
+- 意味のあるテキストの保持: 適切な見出しや段落テキストを識別して維持  
+- 不要な行の除去: OCRで生じた不要な文字や記号行を削除  
+- 空白行の最適化: 過度な空白行を制限（最大2行連続まで）  
+
+```bash
+# 単一ファイルのククリーニング
+uv run src/arxiv-document-ocr-cleaning.py src/input/sample.md
+
+# ディレクトリ内部の前ファルのクリーニング
+uv run src/arxiv-document-ocr-cleaning.py src/input/
 ```
