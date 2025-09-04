@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+src/input/converted-markdown-arxiv/
+src/input/converted-markdown-github/
+src/output/arxiv/

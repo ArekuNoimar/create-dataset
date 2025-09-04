@@ -136,8 +136,8 @@ uv run src/gpt-oss-20b-parallel.py --dataset-size 10 --max-resource 3 --output-d
 
 ```bash
 # マークダウンファイルをjson形式のデータセットに統合
-
-```uv run src/markdown-to-dataset.py --input src/input/ --output-dir src/output/ --output-file-name cpt_dataset
+uv run src/markdown-to-dataset.py --input src/input/ --output-dir src/output/arxiv/ --output-file-name cpt_dataset
+```
 
 ## 使用可能なオプション
 
